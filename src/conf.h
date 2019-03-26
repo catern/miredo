@@ -40,6 +40,8 @@ char *miredo_conf_get (miredo_conf *conf, const char *name, unsigned *line);
 
 bool miredo_conf_get_int16 (miredo_conf *conf, const char *name,
                             uint16_t *value, unsigned *line);
+bool miredo_conf_get_fd (miredo_conf *conf, const char *name,
+			 int *value, unsigned *line);
 bool miredo_conf_get_bool (miredo_conf *conf, const char *name,
                            bool *value, unsigned *line);
 

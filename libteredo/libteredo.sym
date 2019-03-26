@@ -1,6 +1,7 @@
 teredo_startup
 teredo_cleanup
 teredo_create
+teredo_create_from_fd
 teredo_destroy
 teredo_get_privdata
 teredo_set_client_mode

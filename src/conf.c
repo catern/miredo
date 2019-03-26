@@ -41,6 +41,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <libteredo/teredo.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "miredo.h"
 #include "conf.h"
@@ -329,6 +331,39 @@ bool miredo_conf_get_int16 (miredo_conf *conf, const char *name,
 		return false;
 	}
 	*value = (uint16_t)l;
+	free (val);
+	return true;
+}
+
+bool miredo_conf_get_fd (miredo_conf *conf, const char *name,
+			 int *value, unsigned *line)
+{
+	char *val = miredo_conf_get (conf, name, line);
+
+	if (val == NULL)
+		return true;
+
+	char *end;
+	unsigned long l;
+
+	l = strtoul (val, &end, 0);
+	
+	if ((*end))
+	{
+		LogError (conf, _("Invalid integer value \"%s\" for %s: %s"),
+		          val, name, strerror (errno));
+		free (val);
+		return false;
+	}
+	int fd = (int)l;
+	if (fcntl(fd, F_GETFD) < 0)
+	{
+		LogError (conf, _("No such file descriptor \"%s\" for %s: %s"),
+		          val, name, strerror (errno));
+		free (val);
+		return false;
+	}
+	*value = fd;
 	free (val);
 	return true;
 }

@@ -205,32 +205,6 @@ setuid_notice (void)
 static int
 init_security (const char *username)
 {
-	int val;
-
-	(void)umask (022);
-	if (chdir ("/"))
-		return -1;
-
-	/*
-	 * We close all file handles, except 0, 1 and 2.
-	 * This ensures that select() fd_set won't overflow.
-	 *
-	 * Those last 3 handles will be opened as /dev/null
-	 * by later daemon().
-	 */
-	closefrom (3);
-
-	/*
-	 * Make sure 0, 1 and 2 are open.
-	 */
-	val = dup (2);
-	if (val != 3)
-		return -1;
-	close (val);
-
-	/* Clears environment */
-	(void)clearenv ();
-
 #ifdef MIREDO_DEFAULT_USERNAME
 	/* Determines unpriviledged user */
 	errno = 0;
@@ -242,27 +216,7 @@ init_security (const char *username)
 		return -1;
 	}
 
-	if (pw->pw_uid == 0)
-	{
-		fputs (_("Error: This program is not supposed to keep root\n"
-			"privileges. That is potentially very dangerous\n"
-			"(all the more as it has never been externally audited).\n"),
-			stderr);
-		return -1;
-	}
 	unpriv_uid = pw->pw_uid;
-
-	/* Ensure we have root privilege before initialization */
-	if (seteuid (0)
-	/* Unpriviledged group */
-	 || setgid (pw->pw_gid)
-	 || initgroups (username, pw->pw_gid))
-	{
-		fprintf (stderr, _("SetUID to root: %s\n"), strerror (errno));
-		setuid_notice ();
-		return -1;
-	}
-
 #else
 	(void)username;
 #endif /* MIREDO_DEFAULT_USERNAME */
@@ -496,20 +450,6 @@ int miredo_main (int argc, char *argv[])
 	}
 	close (pipes[0]);
 
-	/* Opens pidfile */
-	int fd = create_pidfile (pidfile);
-	if (fd == -1)
-	{
-		fprintf (stderr, _("Cannot create PID file %s:\n %s\n"),
-		         pidfile, strerror (errno));
-		if ((errno == EAGAIN) || (errno == EACCES))
-			fprintf (stderr, "%s\n",
-			         _("Please make sure another instance of the program is "
-				   "not already running."));
-		exit (1);
-	}
-
-	/* Detaches */
 	if (!flags.foreground)
 	{
 		c = 0;
@@ -526,10 +466,7 @@ int miredo_main (int argc, char *argv[])
 	/*
 	 * Run
 	 */
-	c = miredo (conffile, servername, fd);
-
-	(void)unlink (pidfile);
-	close (fd);
+	c = miredo (conffile, servername, -1);
 
 	exit (c ? 1 : 0);
 }

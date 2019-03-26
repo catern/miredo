@@ -102,6 +102,8 @@ typedef struct teredo_tunnel teredo_tunnel;
  */
 teredo_tunnel *teredo_create (uint32_t ipv4, uint16_t port);
 
+teredo_tunnel *teredo_create_from_fd (uint32_t ipv4, uint16_t port, int fd);
+
 /**
  * Releases all resources (sockets, memory chunks...) and terminates all
  * threads associated with a teredo_tunnel instance.

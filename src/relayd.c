@@ -519,8 +519,11 @@ relay_run (miredo_conf *conf, const char *server_name)
 		0;
 #endif
 
+	int inherited_fd = -1;
+
 	if (!miredo_conf_parse_IPv4 (conf, "BindAddress", &bind_ip)
-	 || !miredo_conf_get_int16 (conf, "BindPort", &bind_port, NULL))
+	    || !miredo_conf_get_int16 (conf, "BindPort", &bind_port, NULL)
+	    || !miredo_conf_get_fd (conf, "InheritedFD", &inherited_fd, NULL))
 	{
 		syslog (LOG_ALERT, _("Fatal configuration error"));
 		return -2;
@@ -561,7 +564,12 @@ relay_run (miredo_conf *conf, const char *server_name)
 	{
 		if (drop_privileges () == 0)
 		{
-			teredo_tunnel *relay = teredo_create (bind_ip, bind_port);
+			teredo_tunnel *relay;
+			if (inherited_fd > 0) {
+				relay = teredo_create_from_fd (bind_ip, bind_port, inherited_fd);
+			} else {
+				relay = teredo_create (bind_ip, bind_port);
+			}
 			if (relay != NULL)
 			{
 				miredo_tunnel data = { tunnel, privfd, relay };
