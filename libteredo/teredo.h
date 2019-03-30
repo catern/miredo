@@ -26,6 +26,9 @@
 #ifndef MIREDO_INCLUDE_TEREDO_H
 # define MIREDO_INCLUDE_TEREDO_H
 
+#include <stdint.h>
+#include <netinet/in.h>
+
 # if __STDC_VERSION__ < 199901L
 #  ifndef inline
 #   define inline

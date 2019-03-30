@@ -876,7 +876,7 @@ static void teredo_dummy_state_down_cb (void *o)
 #endif
 
 
-teredo_tunnel *teredo_create_from_fd (uint32_t ipv4, uint16_t port, int fd)
+static teredo_tunnel *teredo_create_internal (uint32_t ipv4, uint16_t port, int fd)
 {
 	teredo_tunnel *tunnel = (teredo_tunnel *)malloc (sizeof (*tunnel));
 	if (tunnel == NULL)
@@ -922,9 +922,13 @@ teredo_tunnel *teredo_create (uint32_t ipv4, uint16_t port)
 	int fd = teredo_socket (ipv4, port);
 	if (fd < 0)
 		return NULL;
-	teredo_create_from_fd(ipv4, port, fd);
+	return teredo_create_internal(ipv4, port, fd);
 }
 
+teredo_tunnel *teredo_create_from_fd (int fd)
+{
+	return teredo_create_internal(0, 0, fd);
+}
 
 void teredo_destroy (teredo_tunnel *t)
 {

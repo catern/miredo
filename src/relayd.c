@@ -566,7 +566,7 @@ relay_run (miredo_conf *conf, const char *server_name)
 		{
 			teredo_tunnel *relay;
 			if (inherited_fd > 0) {
-				relay = teredo_create_from_fd (bind_ip, bind_port, inherited_fd);
+				relay = teredo_create_from_fd (inherited_fd);
 			} else {
 				relay = teredo_create (bind_ip, bind_port);
 			}

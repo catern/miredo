@@ -58,8 +58,12 @@ miredo_LDADD = ../libtun6/libtun6.la ../libteredo/libteredo.la libmiredo.la \
 # privproc
 miredo_privproc_SOURCES = privproc.c privproc.h
 miredo_privproc_LDADD = ../libteredo/libteredo.la $(LIBCAP)
+# miredo-run-client
+miredo_run_client_SOURCES = miredo_run_client.c
+miredo_run_client_LDADD = ../libtun6/libtun6.la ../libteredo/libteredo.la libmiredo.la \
+			  @LIBRT@ $(LIBINTL)
 if TEREDO_CLIENT
-pkglibexec_PROGRAMS += miredo-privproc
+pkglibexec_PROGRAMS += miredo-privproc miredo-run-client
 TESTS += miredo-checkconf
 endif
 

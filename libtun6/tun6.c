@@ -165,7 +165,6 @@ tun6 *tun6_create (const char *req_name)
 
 	fcntl (reqfd, F_SETFD, FD_CLOEXEC);
 
-#if defined (USE_LINUX)
 	/*
 	 * TUNTAP (Linux) tunnel driver initialization
 	 */
@@ -204,132 +203,6 @@ tun6 *tun6_create (const char *req_name)
 	int id = if_nametoindex (req.ifr_name);
 	if (id == 0)
 		goto error;
-#elif defined (USE_BSD)
-# ifdef HAVE_KLDLOAD
-	kldload ("if_tun");
-# endif
-	/*
-	 * BSD tunnel driver initialization
-	 * (see BSD src/sys/net/if_tun.{c,h})
-	 */
-	int fd = open ("/dev/tun", O_RDWR);
-	if ((fd == -1) && (errno == ENOENT))
-	{
-		/*
-		 * Some BSD variants or older kernel versions do not support /dev/tun,
-		 * so fallback to the old scheme.
-		 */
-		int saved_errno = 0;
-		for (unsigned i = 0; fd == -1; i++)
-		{
-			char tundev[5 + IFNAMSIZ];
-			snprintf (tundev, sizeof (tundev), "/dev/tun%u", i);
-
-			fd = open (tundev, O_RDWR);
-			if ((fd == -1) && (errno == ENOENT))
-				// If /dev/tun<i> does not exist,
-				// /dev/tun<i+1> won't exist either
-				break;
-
-			saved_errno = errno;
-		}
-		errno = saved_errno;
-	}
-
-	if (fd == -1)
-	{
-		syslog (LOG_ERR, _("Tunneling driver error (%s): %m"), "/dev/tun*");
-		goto error;
-	}
-	else
-	{
-		struct stat st;
-		fstat (fd, &st);
-# ifdef HAVE_DEVNAME_R
-		devname_r (st.st_rdev, S_IFCHR, t->orig_name, sizeof (t->orig_name));
-# else
-		const char *name = devname (st.st_rdev, S_IFCHR);
-		if (safe_strcpy (t->orig_name, name))
-			goto error;
-# endif		
-	}
-
-	int id = if_nametoindex (t->orig_name);
-	if (id == 0)
-	{
-		syslog (LOG_ERR, _("Tunneling driver error (%s): %m"),
-		        t->orig_name);
-		goto error;
-	}
-
-# ifdef TUNSIFMODE
-	/* Sets sensible tunnel type (broadcast rather than point-to-point) */
-	(void)ioctl (fd, TUNSIFMODE, &(int){ IFF_BROADCAST });
-# endif
-
-# if defined (TUNSIFHEAD)
-	/* Enables TUNSIFHEAD */
-	if (ioctl (fd, TUNSIFHEAD, &(int){ 1 }))
-	{
-		syslog (LOG_ERR, _("Tunneling driver error (%s): %m"),
-		        "TUNSIFHEAD");
-#  if defined (__APPLE__)
-		if (errno == EINVAL)
-			syslog (LOG_NOTICE,
-			        "*** Ignoring tun-tap-osx spurious error ***");
-		else
-#  endif
-		goto error;
-	}
-# elif defined (TUNSLMODE)
-	/* Disables TUNSLMODE (deprecated opposite of TUNSIFHEAD) */
-	if (ioctl (fd, TUNSLMODE, &(int){ 0 }))
-	{
-		syslog (LOG_ERR, _("Tunneling driver error (%s): %m"),
-		        "TUNSLMODE");
-		goto error;
-	}
-#endif
-
-	/* Customizes interface name */
-	if (req_name != NULL)
-	{
-		struct ifreq req;
-		memset (&req, 0, sizeof (req));
-
-		if (if_indextoname (id, req.ifr_name) == NULL)
-		{
-			syslog (LOG_ERR, _("Tunneling driver error (%s): %m"),
-			        "if_indextoname");
-			goto error;
-		}
-		else
-		if (strcmp (req.ifr_name, req_name))
-		{
-#ifdef SIOCSIFNAME
-			char ifname[IFNAMSIZ];
-			req.ifr_data = ifname;
-
-			errno = ENAMETOOLONG;
-			if (safe_strcpy (ifname, req_name)
-			 || ioctl (reqfd, SIOCSIFNAME, &req))
-#else
-			syslog (LOG_DEBUG,
-"Tunnel interface renaming is not supported on your operating system.\n"
-"To run miredo properly, you need to remove the InterfaceName directive\n"
-"from its configuration file.\n");
-			errno = ENOSYS;
-#endif
-			{
-				syslog (LOG_ERR, _("Tunneling driver error (%s): %m"),
-				        "SIOCSIFNAME");
-				goto error;
-			}
-		}
-	}
-#else
-# error No tunneling driver implemented on your platform!
-#endif /* HAVE_os */
 
 	fcntl (fd, F_SETFD, FD_CLOEXEC);
 	/*int val = fcntl (fd, F_GETFL);
@@ -343,6 +216,43 @@ error:
 	(void)close (reqfd);
 	if (fd != -1)
 		(void)close (fd);
+	syslog (LOG_ERR, _("%s tunneling interface creation failure"), os_driver);
+	free (t);
+	return NULL;
+}
+
+tun6 *tun6_create_from_fd (const int fd)
+{
+	(void)bindtextdomain (PACKAGE_NAME, LOCALEDIR);
+	tun6 *t = (tun6 *) malloc (sizeof (*t));
+	if (t == NULL)
+		return NULL;
+
+	int reqfd = socket (AF_INET6, SOCK_DGRAM, 0);
+	if (reqfd == -1)
+	{
+		free (t);
+		return NULL;
+	}
+
+	fcntl (reqfd, F_SETFD, FD_CLOEXEC);
+
+	struct ifreq req;
+
+	if (ioctl (fd, TUNGETIFF, (void *)&req)) {
+		syslog (LOG_ERR, _("Tunneling driver error (%s): %m"), "TUNGETIFF");
+		goto error;
+	}
+
+	*t = (tun6) {
+		.id = req.ifr_ifindex,
+		.fd = fd,
+		.reqfd = reqfd,
+	};
+	return t;
+
+error:
+	(void)close (reqfd);
 	syslog (LOG_ERR, _("%s tunneling interface creation failure"), os_driver);
 	free (t);
 	return NULL;
