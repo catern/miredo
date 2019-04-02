@@ -105,8 +105,6 @@ static int miredo_init (bool client)
 
 	miredo_setup_nonblock_fd (icmp6_fd);
 
-	setsockopt (icmp6_fd, SOL_IPV6, IPV6_CHECKSUM, &(int){2}, sizeof (int));
-
 	/* We don't use the socket for receive -> block all */
 	struct icmp6_filter filt;
 	ICMP6_FILTER_SETBLOCKALL (&filt);

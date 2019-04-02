@@ -77,11 +77,9 @@ static void miredo_down_callback (void *data)
 
 static int setup_icmp6_socket(void)
 {
-	int fd = socket(AF_INET6, SOCK_RAW|SOCK_NONBLOCK, IPPROTO_ICMPV6);
+	int fd = socket(AF_INET6, SOCK_RAW|SOCK_NONBLOCK|SOCK_CLOEXEC, IPPROTO_ICMPV6);
 	if (fd < 0)
 		err(1, "socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6)");
-	if (setsockopt(fd, SOL_IPV6, IPV6_CHECKSUM, &(int){2}, sizeof (int)) < 0)
-		err(1, "setsockopt(fd, SOL_IPV6, IPV6_CHECKSUM, 2)");
 	/* We don't use the socket for receive -> block all */
 	struct icmp6_filter filt;
 	ICMP6_FILTER_SETBLOCKALL (&filt);
