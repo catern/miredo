@@ -221,26 +221,21 @@ error:
 	return NULL;
 }
 
-tun6 *tun6_create_from_fd (const int fd)
+tun6 *tun6_create_from_fd (const int fd, const int reqfd)
 {
 	(void)bindtextdomain (PACKAGE_NAME, LOCALEDIR);
 	tun6 *t = (tun6 *) malloc (sizeof (*t));
 	if (t == NULL)
 		return NULL;
 
-	int reqfd = socket (AF_INET6, SOCK_DGRAM, 0);
-	if (reqfd == -1)
-	{
-		free (t);
-		return NULL;
-	}
-
-	fcntl (reqfd, F_SETFD, FD_CLOEXEC);
-
 	struct ifreq req;
 
 	if (ioctl (fd, TUNGETIFF, (void *)&req)) {
 		syslog (LOG_ERR, _("Tunneling driver error (%s): %m"), "TUNGETIFF");
+		goto error;
+	}
+	if (ioctl (reqfd, SIOCGIFINDEX, (void *)&req)) {
+		syslog (LOG_ERR, _("Tunneling driver error (%s): %m"), "SIOCFGIFINDEX");
 		goto error;
 	}
 
@@ -252,7 +247,6 @@ tun6 *tun6_create_from_fd (const int fd)
 	return t;
 
 error:
-	(void)close (reqfd);
 	syslog (LOG_ERR, _("%s tunneling interface creation failure"), os_driver);
 	free (t);
 	return NULL;

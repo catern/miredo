@@ -73,7 +73,7 @@ int tun6_driver_diagnose (char *errbuf) LIBTUN6_NONNULL;
  */
 
 tun6 *tun6_create (const char *req_name) LIBTUN6_WARN_UNUSED;
-tun6 *tun6_create_from_fd (int fd) LIBTUN6_WARN_UNUSED;
+tun6 *tun6_create_from_fd (int fd, int reqfd) LIBTUN6_WARN_UNUSED;
 void tun6_destroy (tun6 *t) LIBTUN6_NONNULL;
 
 int tun6_getId (const tun6 *t) LIBTUN6_NONNULL;

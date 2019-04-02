@@ -94,6 +94,7 @@ static int setup_icmp6_socket(void)
 struct options {
 	int teredo_fd;
 	int tun_fd;
+	int req_fd;
 	int privproc_fd;
 	char *server_name;
 	char *server_name2;
@@ -112,16 +113,17 @@ static int parse_fd(char *str)
 
 static struct options parse_args(int argc, char **argv)
 {
-	if (argc != 6) {
-		errx(1, "Usage: %s <teredo_fd> <tun_fd> <privproc_fd> <server_name> <server_name2>",
+	if (argc != 7) {
+		errx(1, "Usage: %s <teredo_fd> <tun_fd> <req_fd> <privproc_fd> <server_name> <server_name2>",
 		     argc > 0 ? argv[0] : "miredo-run-client");
 	}
 	return (struct options) {
 		.teredo_fd = parse_fd(argv[1]),
 		.tun_fd = parse_fd(argv[2]),
-		.privproc_fd = parse_fd(argv[3]),
-		.server_name = argv[4],
-		.server_name2 = argv[5],
+		.req_fd = parse_fd(argv[3]),
+		.privproc_fd = parse_fd(argv[4]),
+		.server_name = argv[5],
+		.server_name2 = argv[6],
 	};
 }
 
@@ -131,7 +133,7 @@ int main(int argc, char **argv)
 	if (teredo_startup(true)) err(1, "teredo_startup(True)");
 	teredo_tunnel *relay = teredo_create_from_fd(opt.teredo_fd);
 	if (!relay) errx(1, "failed to create teredo relay from fd %d", opt.teredo_fd);
-	tun6 *tunnel = tun6_create_from_fd(opt.tun_fd);
+	tun6 *tunnel = tun6_create_from_fd(opt.tun_fd, opt.req_fd);
 	if (!tunnel) errx(1, "failed to create tun object from fd %d", opt.tun_fd);
 	int ret = teredo_set_client_mode(relay, opt.server_name, opt.server_name2);
 	if (ret) errx(1, "failed to set up teredo client");
