@@ -75,17 +75,17 @@ static void miredo_down_callback (void *data)
 	warnx("Teredo pseudo-tunnel stopped");
 }
 
-static int setup_icmp6_socket(void)
+static void setup_icmp6_socket(int fd)
 {
-	int fd = socket(AF_INET6, SOCK_RAW|SOCK_NONBLOCK|SOCK_CLOEXEC, IPPROTO_ICMPV6);
-	if (fd < 0)
-		err(1, "socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6)");
+	int flags = fcntl (fd, F_GETFL);
+	if (flags == -1)
+		flags = 0;
+	(void) fcntl (fd, F_SETFL, O_NONBLOCK | flags);
 	/* We don't use the socket for receive -> block all */
 	struct icmp6_filter filt;
 	ICMP6_FILTER_SETBLOCKALL (&filt);
 	if (setsockopt(fd, SOL_ICMPV6, ICMP6_FILTER, &filt, sizeof (filt)) < 0)
 		err(1, "setsockopt(fd, SOL_ICMPV6, ICMP6_FILTER, filt)");
-	return fd;
 }
 
 
@@ -93,6 +93,7 @@ struct options {
 	int teredo_fd;
 	int tun_fd;
 	int req_fd;
+	int icmp6_fd;
 	int privproc_fd;
 	char *server_name;
 	char *server_name2;
@@ -111,17 +112,18 @@ static int parse_fd(char *str)
 
 static struct options parse_args(int argc, char **argv)
 {
-	if (argc != 7) {
-		errx(1, "Usage: %s <teredo_fd> <tun_fd> <req_fd> <privproc_fd> <server_name> <server_name2>",
+	if (argc != 8) {
+		errx(1, "Usage: %s <teredo_fd> <tun_fd> <req_fd> <icmp6_fd> <privproc_fd> <server_name> <server_name2>",
 		     argc > 0 ? argv[0] : "miredo-run-client");
 	}
 	return (struct options) {
 		.teredo_fd = parse_fd(argv[1]),
 		.tun_fd = parse_fd(argv[2]),
 		.req_fd = parse_fd(argv[3]),
-		.privproc_fd = parse_fd(argv[4]),
-		.server_name = argv[5],
-		.server_name2 = argv[6],
+		.icmp6_fd = parse_fd(argv[4]),
+		.privproc_fd = parse_fd(argv[5]),
+		.server_name = argv[6],
+		.server_name2 = argv[7],
 	};
 }
 
@@ -135,9 +137,9 @@ int main(int argc, char **argv)
 	if (!tunnel) errx(1, "failed to create tun object from fd %d", opt.tun_fd);
 	int ret = teredo_set_client_mode(relay, opt.server_name, opt.server_name2);
 	if (ret) errx(1, "failed to set up teredo client");
-	int icmp6_fd = setup_icmp6_socket();
+	setup_icmp6_socket(opt.icmp6_fd);
 
-	struct miredo_tunnel data = { tunnel, opt.privproc_fd, icmp6_fd };
+	struct miredo_tunnel data = { tunnel, opt.privproc_fd, opt.icmp6_fd };
 	teredo_set_privdata(relay, &data);
 	teredo_set_state_cb(relay, miredo_up_callback, miredo_down_callback);
 	teredo_set_recv_callback(relay, miredo_recv_callback);
